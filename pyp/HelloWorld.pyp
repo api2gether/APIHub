@@ -8,9 +8,4 @@
         <Version>1.0</Version>
     </Script>
 
-	<Page>
-		<Name>Page</Name>
-		<Text>My Page</Text>
-	</Page>
-
 </Element>
