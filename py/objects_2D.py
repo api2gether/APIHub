@@ -76,8 +76,13 @@ def create_element(build_ele : BuildingElement,
 
     pyp_util = PythonPartUtil()
 
-    # Extract parameters values ​​from palette
-    line_length = build_ele.LineLength.value
+    # Extract parameters values from palette
+    choice = build_ele.ChoiceRadioGroup.value
+
+    line_length   = build_ele.LineLength.value
+    rect_length   = build_ele.RectLength.value
+    rect_width    = build_ele.RectWidth.value
+    circle_radius = build_ele.CircleRadius.value
 
     # Define common properties
     if build_ele.UseGlobalProperties.value:
@@ -87,7 +92,13 @@ def create_element(build_ele : BuildingElement,
         com_prop = build_ele.CommonProperties.value
 
     # Create 2D object
-    object_2d = Line2D(com_prop, line_length)
+    if choice == "line":
+        object_2d = Line2D(com_prop, line_length)
+    elif choice == "rectangle":
+        object_2d = Rectangle2D(com_prop, rect_length, rect_width)
+    else:
+        object_2d = Circle2D(com_prop, circle_radius)
+
     object_2d.create_geo()
 
     # Add object to view
@@ -166,3 +177,61 @@ class Line2D(Objects2D):
 
     def create_geo(self):
         self.geo = Geometry.Line2D(0, 0, self.line_length, 0)
+
+
+class Rectangle2D(Objects2D):
+    """Definition of class Rectangle2D
+    """
+    def __init__(self,
+                 object_2d_prop : BaseElements.CommonProperties,
+                 rect_length    : float,
+                 rect_width     : float):
+        Objects2D.__init__(self, object_2d_prop)
+        self.rect_length  = rect_length
+        self.rect_width   = rect_width
+        self.handles_prop = [Handle("RectLengthHandle",
+                                    Geometry.Point3D(self.rect_length, 0, 0),
+                                    Geometry.Point3D(),
+                                    "RectLength",
+                                    HandleDirection.X_DIR,
+                                    "Longueur"
+                                    ),
+                             Handle("RectWidthHandle",
+                                    Geometry.Point3D(self.rect_length, self.rect_width, 0),
+                                    Geometry.Point3D(self.rect_length, 0, 0),
+                                    "RectWidth",
+                                    HandleDirection.Y_DIR,
+                                    "Largeur"
+                                    )
+                             ]
+
+
+    def create_geo(self):
+        self.geo  = Geometry.Polygon2D()
+        self.geo += Geometry.Point2D()
+        self.geo += Geometry.Point2D(self.rect_length, 0)
+        self.geo += Geometry.Point2D(self.rect_length, self.rect_width)
+        self.geo += Geometry.Point2D(0, self.rect_width)
+        self.geo += self.geo.StartPoint
+
+
+class Circle2D(Objects2D):
+    """Definition of class Circle2D
+    """
+    def __init__(self,
+                 object_2d_prop : BaseElements.CommonProperties,
+                 circle_radius  : float):
+        Objects2D.__init__(self, object_2d_prop)
+        self.circle_radius = circle_radius
+        self.handles_prop  = [Handle("CircleRadiusHandle",
+                                     Geometry.Point3D(self.circle_radius, 0, 0),
+                                     Geometry.Point3D(),
+                                     "CircleRadius",
+                                     HandleDirection.X_DIR,
+                                     "Rayon"
+                                     )
+                              ]
+
+
+    def create_geo(self):
+        self.geo = Geometry.Arc2D(Geometry.Point2D(),self.circle_radius)
