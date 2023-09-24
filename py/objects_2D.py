@@ -129,6 +129,8 @@ class Objects2D:
 
 
 class Handle:
+    """Definition of class Handle
+    """
     def __init__(self,
                  handle_id         : str,
                  handle_point      : Geometry.Point3D,
