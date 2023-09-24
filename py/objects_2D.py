@@ -116,7 +116,6 @@ class Objects2D:
     def __init__(self,
                  object_2d_prop : BaseElements.CommonProperties):
         self.object_2d_prop = object_2d_prop
-        self.handles_object = []
         self.geo            = None
 
 
