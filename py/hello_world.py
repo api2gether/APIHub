@@ -79,8 +79,11 @@ def create_element(build_ele : BuildingElement,
     line_length = build_ele.LineLength.value
 
     # Define common properties
-    com_prop = BaseElements.CommonProperties()
-    com_prop.GetGlobalProperties()
+    if build_ele.UseGlobalProperties.value:
+        com_prop = BaseElements.CommonProperties()
+        com_prop.GetGlobalProperties()
+    else:
+        com_prop = build_ele.CommonProperties.value
 
     # Create 2D line
     line = Geometry.Line2D(0, 0, line_length, 0)
