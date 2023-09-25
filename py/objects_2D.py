@@ -10,6 +10,7 @@ import NemAll_Python_BaseElements       as BaseElements
 import NemAll_Python_BasisElements      as BasisElements
 import NemAll_Python_Geometry           as Geometry
 import NemAll_Python_IFW_ElementAdapter as ElementAdapter
+import NemAll_Python_IFW_Input          as IFWInput
 
 from BuildingElement     import BuildingElement
 from CreateElementResult import CreateElementResult
@@ -84,12 +85,25 @@ def create_element(build_ele : BuildingElement,
     rect_width    = build_ele.RectWidth.value
     circle_radius = build_ele.CircleRadius.value
 
+    is_showing_annotation = build_ele.ShowTextCheckBox.value
+
     # Define common properties
     if build_ele.UseGlobalProperties.value:
         com_prop = BaseElements.CommonProperties()
         com_prop.GetGlobalProperties()
     else:
         com_prop = build_ele.CommonProperties.value
+
+    # Define text properties
+    text_dict = {"Aligner à Gauche" : BasisElements.TextAlignment.eLeftMiddle,
+                 "Centrer"          : BasisElements.TextAlignment.eMiddleMiddle,
+                 "Aligner à Droite" : BasisElements.TextAlignment.eRightMiddle
+                 }
+
+    text_prop           = BasisElements.TextProperties()
+    text_prop.Height    = text_prop.Width = build_ele.TextHeight.value
+    text_prop.Alignment = text_dict[build_ele.TextAlignment.value]
+    text_origin         = build_ele.TextOrigin.value
 
     # Create 2D object
     if choice == "line":
@@ -115,6 +129,22 @@ def create_element(build_ele : BuildingElement,
         handle.info_text = item.handle_info_text
         handle_list.append(handle)
 
+    # Create the annotation
+    if is_showing_annotation:
+        text   = f"Vous avez choisi :\n{object_2d.name_object} de {object_2d.name_dim} {object_2d.dimension}"
+        origin = Geometry.Point2D(text_origin)
+        pyp_util.add_pythonpart_view_2d(BasisElements.TextElement(com_prop, text_prop, text, origin))
+
+        text_handle = HandleProperties("Text",
+                                       text_origin,
+                                       Geometry.Point3D(),
+                                       [HandleParameterData("TextOrigin", HandleParameterType.POINT, False)],
+                                       HandleDirection.XYZ_DIR
+                                       )
+        text_handle.handle_type = IFWInput.ElementHandleType.HANDLE_SQUARE_RED
+        text_handle.info_text   = "Origine du texte"
+        handle_list.append(text_handle)
+
     # Create the PythonPart
     model_ele_list = pyp_util.create_pythonpart(build_ele)
 
@@ -128,6 +158,9 @@ class Objects2D:
                  object_2d_prop : BaseElements.CommonProperties):
         self.object_2d_prop = object_2d_prop
         self.geo            = None
+        self.name_object    = ""
+        self.name_dim       = ""
+        self.dimension      = ""
 
 
     def create_geo(self):
@@ -165,6 +198,9 @@ class Line2D(Objects2D):
                  line_length    : float):
         Objects2D.__init__(self, object_2d_prop)
         self.line_length  = line_length
+        self.name_object  = "une ligne"
+        self.name_dim     = "longueur"
+        self.dimension    = round(self.line_length)
         self.handles_prop = [Handle("LineLengthHandle",
                                     Geometry.Point3D(self.line_length, 0, 0),
                                     Geometry.Point3D(),
@@ -189,6 +225,9 @@ class Rectangle2D(Objects2D):
         Objects2D.__init__(self, object_2d_prop)
         self.rect_length  = rect_length
         self.rect_width   = rect_width
+        self.name_object  = "un rectangle"
+        self.name_dim     = "surface"
+        self.dimension    = round(self.rect_length * self.rect_width)
         self.handles_prop = [Handle("RectLengthHandle",
                                     Geometry.Point3D(self.rect_length, 0, 0),
                                     Geometry.Point3D(),
@@ -223,6 +262,9 @@ class Circle2D(Objects2D):
                  circle_radius  : float):
         Objects2D.__init__(self, object_2d_prop)
         self.circle_radius = circle_radius
+        self.name_object   = "un cercle"
+        self.name_dim      = "rayon"
+        self.dimension     = round(self.circle_radius)
         self.handles_prop  = [Handle("CircleRadiusHandle",
                                      Geometry.Point3D(self.circle_radius, 0, 0),
                                      Geometry.Point3D(),

@@ -111,4 +111,49 @@
 
     </Page>
 
+	<Page>
+
+		<Name>Page2</Name>
+		<Text>Annotation</Text>
+
+		<Parameter>
+            <Name>ShowTextCheckBox</Name>
+            <Text>Afficher la légende</Text>
+            <Value>False</Value>
+            <ValueType>CheckBox</ValueType>
+        </Parameter>
+
+		<Parameter>
+			<Name>TextSeparator</Name>
+			<ValueType>Separator</ValueType>
+			<Visible>ShowTextCheckBox == True</Visible>
+		</Parameter>
+
+		<Parameter>
+            <Name>TextHeight</Name>
+            <Text>Hauteur</Text>
+            <Value>4</Value>
+            <ValueType>Length</ValueType>
+			<Visible>ShowTextCheckBox == True</Visible>
+        </Parameter>
+
+		<Parameter>
+            <Name>TextAlignment</Name>
+            <Text>Alignement</Text>
+            <Value>Aligner à Gauche</Value>
+            <ValueList>Aligner à Gauche|Centrer|Aligner à Droite</ValueList>
+            <ValueType>StringComboBox</ValueType>
+			<Visible>ShowTextCheckBox == True</Visible>
+        </Parameter>
+
+		<Parameter>
+			<Name>TextOrigin</Name>
+			<Text> </Text>
+			<Value>Point3D(0, -1000, 0)</Value>
+			<ValueType>Point3D</ValueType>
+			<Visible>False</Visible>
+		</Parameter>
+
+	</Page>
+
 </Element>
