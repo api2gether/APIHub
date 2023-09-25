@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\objects_2D.py</Name>
         <Title>Objects2D</Title>
-        <Version>2.0</Version>
+        <Version>3.0</Version>
     </Script>
 
     <Page>
@@ -30,14 +30,14 @@
 				<Value>line</Value>
 				<ValueType>RadioButton</ValueType>
 			</Parameter>
-	
+
 			<Parameter>
 				<Name>ChoiceRectangle</Name>
 				<Text>un rectangle</Text>
 				<Value>rectangle</Value>
 				<ValueType>RadioButton</ValueType>
 			</Parameter>
-	
+
 			<Parameter>
 				<Name>ChoiceCircle</Name>
 				<Text>un cercle</Text>
