@@ -75,7 +75,7 @@ def create_element(build_ele : BuildingElement,
 
     pyp_util = PythonPartUtil()
 
-    # Extract parameters values ​​from palette
+    # Extract parameters values from palette
     line_length = build_ele.LineLength.value
 
     # Define common properties

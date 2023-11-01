@@ -4,8 +4,6 @@
 Author:
     Christophe MAIGNAN @ API2GETHER - 2023
 """
-from typing import List
-
 import NemAll_Python_BaseElements       as BaseElements
 import NemAll_Python_BasisElements      as BasisElements
 import NemAll_Python_Geometry           as Geometry
@@ -179,7 +177,7 @@ class Handle:
                  handle_id         : str,
                  handle_point      : Geometry.Point3D,
                  ref_point         : Geometry.Point3D,
-                 handle_param_data : List[HandleParameterData],
+                 handle_param_data : str,
                  handle_move_dir   : HandleDirection,
                  handle_info_text  : str):
         self.handle_id         = handle_id
