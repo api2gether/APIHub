@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\objects_3D.py</Name>
         <Title>Objects3D</Title>
-        <Version>1.0</Version>
+        <Version>2.0</Version>
     </Script>
 
     <Page>
@@ -96,11 +96,41 @@
 				<Name>ColumnHeight</Name>
 				<Text>Hauteur</Text>
 				<FontFaceCode>4</FontFaceCode>
-				<Value>2500.0</Value>
+				<Value>-1</Value>
 				<ValueType>Length</ValueType>
+				<Constraint>PlaneReferences</Constraint>
+			</Parameter>
+
+			<Parameter>
+				<Name>PlaneReferences</Name>
+				<Text> </Text>
+				<Value></Value>
+				<ValueType>PlaneReferences</ValueType>
+				<ValueDialog>PlaneReferences</ValueDialog>
+				<Constraint>ColumnHeight</Constraint>
 			</Parameter>
 
         </Parameter>
+
+		<Parameter>
+            <Name>AttachmentExpander</Name>
+            <Text>Accrochage</Text>
+            <ValueType>Expander</ValueType>
+
+        <Parameter>
+            <Name>AttachmentPointButtonRow</Name>
+            <Text>Point d'accrochage</Text>
+            <ValueType>Row</ValueType>
+
+				<Parameter>
+					<Name>AttachmentPoint</Name>
+					<Text>Attachment point index</Text>
+					<Value>5</Value>
+					<ValueType>RefPointButton</ValueType>
+				</Parameter>
+            </Parameter>
+
+		</Parameter>
 
         <Parameter>
             <Name>FormatExpander</Name>

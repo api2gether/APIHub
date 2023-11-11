@@ -11,6 +11,7 @@ import NemAll_Python_BasisElements      as BasisElements
 import NemAll_Python_Geometry           as Geometry
 import NemAll_Python_IFW_ElementAdapter as ElementAdapter
 import NemAll_Python_IFW_Input          as IFWInput
+import NemAll_Python_ArchElements       as ArchElements
 
 from BuildingElement              import BuildingElement
 from BuildingElementAttributeList import BuildingElementAttributeList
@@ -109,6 +110,11 @@ def create_element(build_ele : BuildingElement,
     column_radius    = build_ele.ColumnRadius.value
     column_height    = build_ele.ColumnHeight.value
 
+    attach_point = build_ele.AttachmentPoint.value
+
+    plane_ref: ArchElements.PlaneReferences = build_ele.PlaneReferences.value
+    column_bottom = plane_ref.GetAbsBottomElevation()
+
     # Define common properties
     if build_ele.UseGlobalProperties.value:
         com_prop = BaseElements.CommonProperties()
@@ -144,9 +150,9 @@ def create_element(build_ele : BuildingElement,
 
     # Create 3D object
     if choice == "rectangle":
-        my_column = Cuboid(com_prop, column_length, column_thickness, column_height)
+        my_column = Cuboid(com_prop, attach_point, column_bottom, column_length, column_thickness, column_height)
     else:
-        my_column = Cylinder(com_prop, column_radius, column_height)
+        my_column = Cylinder(com_prop, attach_point, column_bottom, column_radius, column_height)
 
     my_column.create_geo()
 
@@ -222,8 +228,12 @@ def create_element(build_ele : BuildingElement,
     attr_list.add_attributes_from_parameters(build_ele)
     pyp_util.add_attribute_list(attr_list)
 
+    # Reference point
+    placement_mat = Geometry.Matrix3D()
+    placement_mat.SetTranslation(Geometry.Vector3D(my_column.placement_pt))
+
     # Create the PythonPart
-    model_ele_list = pyp_util.create_pythonpart(build_ele)
+    model_ele_list = pyp_util.create_pythonpart(build_ele, placement_mat)
 
     return CreateElementResult(model_ele_list, handle_list)
 
@@ -232,9 +242,15 @@ class Objects3D:
     """Definition of class Objects3D
     """
     def __init__(self,
-                 object_prop : BaseElements.CommonProperties):
-        self.object_prop = object_prop
-        self.geo         = None
+                 object_prop   : BaseElements.CommonProperties,
+                 attach_point  : int,
+                 column_bottom : float):
+        self.object_prop   = object_prop
+        self.geo           = None
+        self.attach_point  = attach_point
+        self.x_offset      = 0
+        self.y_offset      = 0
+        self.z_offset      = column_bottom
 
 
     def calcul_dimensions(self):
@@ -254,10 +270,15 @@ class Objects3D:
         return object_3d
 
 
+    def attachment_point(self):
+        pass
+
+
 class Handle:
     """Definition of class Handle
     """
     def __init__(self,
+                 placement_pt      : Geometry.Point3D,
                  handle_id         : str,
                  handle_point      : Geometry.Point3D,
                  ref_point         : Geometry.Point3D,
@@ -265,8 +286,8 @@ class Handle:
                  handle_move_dir   : HandleDirection,
                  handle_info_text  : str):
         self.handle_id         = handle_id
-        self.handle_point      = handle_point
-        self.ref_point         = ref_point
+        self.handle_point      = placement_pt + handle_point
+        self.ref_point         = placement_pt + ref_point
         self.handle_param_data = handle_param_data
         self.handle_move_dir   = handle_move_dir
         self.handle_info_text  = handle_info_text
@@ -277,36 +298,42 @@ class Cuboid(Objects3D):
     """
     def __init__(self,
                  object_prop   : BaseElements.CommonProperties,
+                 attach_point  : int,
+                 column_bottom : float,
                  column_length : float,
                  column_thick  : float,
                  column_height : float):
-        Objects3D.__init__(self, object_prop)
+        Objects3D.__init__(self, object_prop, attach_point, column_bottom)
         self.column_length = column_length
         self.column_thick  = column_thick
         self.column_height = column_height
         self.name_dim      = f"{round(column_length / 10)}x{round(column_thick / 10)}"
-        self.handles_prop = [Handle("ColumnLengthHandle",
-                                    Geometry.Point3D(self.column_length, 0, 0),
-                                    Geometry.Point3D(),
-                                    "ColumnLength",
-                                    HandleDirection.X_DIR,
-                                    "Longueur"
-                                    ),
-                             Handle("ColumnThickHandle",
-                                    Geometry.Point3D(self.column_length, self.column_thick, 0),
-                                    Geometry.Point3D(self.column_length, 0, 0),
-                                    "ColumnThick",
-                                    HandleDirection.Y_DIR,
-                                    "Largeur"
-                                    ),
-                             Handle("ColumnHeightHandle",
-                                    Geometry.Point3D(0, 0, self.column_height),
-                                    Geometry.Point3D(),
-                                    "ColumnHeight",
-                                    HandleDirection.Z_DIR,
-                                    "Hauteur"
-                                    )
-                             ]
+        self.placement_pt  = self.attachment_point()
+        self.handles_prop  = [Handle(self.placement_pt,
+                                     "ColumnLengthHandle",
+                                     Geometry.Point3D(self.column_length, 0, 0),
+                                     Geometry.Point3D(),
+                                     "ColumnLength",
+                                     HandleDirection.X_DIR,
+                                     "Longueur"
+                                     ),
+                              Handle(self.placement_pt,
+                                     "ColumnThickHandle",
+                                     Geometry.Point3D(self.column_length, self.column_thick, 0),
+                                     Geometry.Point3D(self.column_length, 0, 0),
+                                     "ColumnThick",
+                                     HandleDirection.Y_DIR,
+                                     "Largeur"
+                                     ),
+                              Handle(self.placement_pt,
+                                     "ColumnHeightHandle",
+                                     Geometry.Point3D(0, 0, self.column_height),
+                                     Geometry.Point3D(),
+                                     "ColumnHeight",
+                                     HandleDirection.Z_DIR,
+                                     "Hauteur"
+                                     )
+                              ]
 
 
     def calcul_dimensions(self):
@@ -340,32 +367,53 @@ class Cuboid(Objects3D):
         return hatch_geo
 
 
+    def attachment_point(self):
+        if self.attach_point in {2, 5, 8}:
+            self.x_offset = -self.column_length / 2
+        elif self.attach_point in {3, 6, 9}:
+            self.x_offset = -self.column_length
+
+        if self.attach_point in {1, 2, 3}:
+            self.y_offset = -self.column_thick
+        elif self.attach_point in {4, 5, 6}:
+            self.y_offset = -self.column_thick / 2
+
+        placement_pt = Geometry.Point3D(self.x_offset, self.y_offset, self.z_offset)
+
+        return placement_pt
+
+
 class Cylinder(Objects3D):
     """Definition of class Cylinder
     """
     def __init__(self,
                  object_prop   : BaseElements.CommonProperties,
+                 attach_point  : int,
+                 column_bottom : float,
                  column_rad    : float,
                  column_height : float):
-        Objects3D.__init__(self, object_prop)
-        self.name_dim      = f"Ø{round(column_rad / 10)}"
+        Objects3D.__init__(self, object_prop, attach_point, column_bottom)
         self.column_radius = column_rad
         self.column_height = column_height
-        self.handles_prop = [Handle("ColumnRadiusHandle",
-                                    Geometry.Point3D(self.column_radius, 0, 0),
-                                    Geometry.Point3D(),
-                                    "ColumnRadius",
-                                    HandleDirection.X_DIR,
-                                    "Rayon"
-                                    ),
-                             Handle("ColumnHeightHandle",
-                                    Geometry.Point3D(0, 0, self.column_height),
-                                    Geometry.Point3D(),
-                                    "ColumnHeight",
-                                    HandleDirection.Z_DIR,
-                                    "Hauteur"
-                                    )
-                             ]
+        self.name_dim      = f"Ø{round(column_rad / 10)}"
+        self.placement_pt  = self.attachment_point()
+        self.handles_prop  = [Handle(self.placement_pt,
+                                     "ColumnRadiusHandle",
+                                     Geometry.Point3D(self.column_radius, 0, 0),
+                                     Geometry.Point3D(),
+                                     "ColumnRadius",
+                                     HandleDirection.X_DIR,
+                                     "Rayon"
+                                     ),
+                              Handle(self.placement_pt,
+                                     "ColumnHeightHandle",
+                                     Geometry.Point3D(0, 0, self.column_height),
+                                     Geometry.Point3D(),
+                                     "ColumnHeight",
+                                     HandleDirection.Z_DIR,
+                                     "Hauteur"
+                                     )
+                              ]
 
 
     def calcul_dimensions(self):
@@ -408,3 +456,19 @@ class Cylinder(Objects3D):
         hatch_geo += hatch_geo.StartPoint
 
         return hatch_geo
+
+
+    def attachment_point(self):
+        if self.attach_point in {1, 4, 7}:
+            self.x_offset = self.column_radius
+        elif self.attach_point in {3, 6, 9}:
+            self.x_offset = -self.column_radius
+
+        if self.attach_point in {1, 2, 3}:
+            self.y_offset = -self.column_radius
+        elif self.attach_point in {7, 8, 9}:
+            self.y_offset = self.column_radius
+
+        placement_pt = Geometry.Point3D(self.x_offset, self.y_offset, self.z_offset)
+
+        return placement_pt
