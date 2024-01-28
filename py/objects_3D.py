@@ -206,7 +206,7 @@ def create_element(build_ele : BuildingElement,
     # Trade @209@
     attr_list.add_attribute(209, 13)
 
-    # Statut @49@
+    # Status @49@
     attr_list.add_attribute(49, 0)
 
     # Load bearing @573@
@@ -395,7 +395,7 @@ class Cylinder(Objects3D):
         Objects3D.__init__(self, object_prop, attach_point, column_bottom)
         self.column_radius = column_rad
         self.column_height = column_height
-        self.name_dim      = f"Ø{round(column_rad / 10)}"
+        self.name_dim      = f"Ø{round(2 * column_rad / 10)}"
         self.placement_pt  = self.attachment_point()
         self.handles_prop  = [Handle(self.placement_pt,
                                      "ColumnRadiusHandle",
