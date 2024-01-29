@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\reinf_concr_column.py</Name>
         <Title>Poteau Béton Armé - API2GETHER</Title>
-        <Version>1.0</Version>
+        <Version>1.01</Version>
     </Script>
 
 	<Constants>
@@ -454,7 +454,7 @@
 
 				<Parameter>
 					<Name>CalculatorButton</Name>
-					<Text> </Text>
+					<Text>Optimise le diamètre suivant le nombre de barres et As min</Text>
 					<EventId>CALC_LONG_REBAR_DIAM</EventId>
 					<Value>images\Calculator.png</Value>
 					<ValueType>PictureButton</ValueType>

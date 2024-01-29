@@ -1,3 +1,4 @@
 __pycache__/
 
 pyp/___pyp__
+*.pyi

@@ -54,8 +54,12 @@ def check_allplan_version(build_ele : BuildingElement,
     Returns:
         True/False if version is supported by this script
     """
-    # Support all versions
-    return True
+    # Support versions >= 2024
+    version = Settings.AllplanVersion.MainReleaseName()
+    if float(version) >= 2024:
+        return True
+    else:
+        return False
 
 
 def move_handle(build_ele   : BuildingElement,
@@ -262,6 +266,8 @@ def create_element(build_ele : BuildingElement,
 
     # Define reinforcement properties
     is_showing_reinf = build_ele.ShowReinfCheckBox.value
+    reinf_prop       = BaseElements.CommonProperties()
+    reinf_prop.Layer = build_ele.ReinfLayerProperties.value
 
     # Define hatch properties
     has_hatch  = build_ele.HatchCheckBox.value
@@ -359,6 +365,11 @@ def create_element(build_ele : BuildingElement,
     # Create reinforcement
     if is_showing_reinf:
         reinf_ele_list = main_column.create_reinforcement()
+
+        # Apply reinforcement properties
+        for rebar in reinf_ele_list:
+            rebar.SetCommonProperties(reinf_prop)
+
         pyp_util.add_reinforcement_elements(reinf_ele_list)
         main_column.create_reinf_attributes()
 
@@ -1031,9 +1042,7 @@ class Reinforcement3D:
     def __init__(self,
                  build_ele  : BuildingElement):
 
-        self.reinforcement    = []
-        self.reinf_prop       = BaseElements.CommonProperties()
-        self.reinf_prop.Layer = build_ele.ReinfLayerProperties.value
+        self.reinforcement = []
 
         self.choice = build_ele.ChoiceRadioGroup.value
 
