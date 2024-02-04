@@ -114,6 +114,13 @@ def modify_control_properties(build_ele      : BuildingElement,
     Returns:
         True if an update of the property palette is necessary, False otherwise
     """
+    if value_name =="ChoiceRadioGroup":
+        if build_ele.ChoiceRadioGroup.value == "circle":
+            build_ele.ColumnRotAngleZ.value = 0
+            build_ele.TextRotAngle.value    = 0
+
+            return True
+
     if event_id == build_ele.CALC_LONG_REBAR_DIAM:
         as_min = build_ele.AsMinDouble.value
         list_diam_mm = [8, 10, 12, 14, 16, 20]
@@ -157,6 +164,11 @@ def modify_control_properties(build_ele      : BuildingElement,
 
         set_constructive_dispositions(build_ele, ctrl_prop_util)
         calcul_as_real(build_ele)
+
+        return True
+
+    if value_name =="ColumnRotAngleZ":
+        build_ele.TextRotAngle.value = -build_ele.ColumnRotAngleZ.value
 
         return True
 
@@ -208,8 +220,9 @@ def create_element(build_ele : BuildingElement,
     Returns:
         result of the created element
     """
-    model_ele_list = []
-    handle_list    = []
+    model_ele_list  = []
+    model_text_list = []
+    handle_list     = []
 
     attr_list      = BuildingElementAttributeList()
     pyp_util       = PythonPartUtil()
@@ -243,6 +256,7 @@ def create_element(build_ele : BuildingElement,
     column_thickness = build_ele.ColumnThick.value
     column_radius    = build_ele.ColumnRadius.value
     column_height    = build_ele.ColumnHeight.value
+    col_z_rotation   = build_ele.ColumnRotAngleZ.value
 
     has_next_col    = build_ele.NextColumnCheckBox.value
     next_col_length = build_ele.NextColumnLength.value
@@ -293,12 +307,19 @@ def create_element(build_ele : BuildingElement,
     text_prop           = BasisElements.TextProperties()
     text_prop.Height    = text_prop.Width = build_ele.TextHeight.value
     text_prop.Alignment = text_dict[build_ele.TextAlignment.value]
-    text_origin         = build_ele.TextOrigin.value
+    angle               = Geometry.Angle()
+    angle.Deg           = build_ele.TextRotAngle.value
+    text_prop.TextAngle = angle
+
+    text_origin = build_ele.TextOrigin.value
+
+    # Define handle properties
+    is_showing_handles = build_ele.ShowHandlesCheckBox.value
 
     # Create 3D object
     if choice == "rectangle":
-        main_column = Cuboid(build_ele, True, com_prop, attach_point, column_bottom, texture, column_length, column_thickness, column_height)
-        next_column = Cuboid(build_ele, False, help_prop, attach_point, column_height, texture, next_col_length, next_col_thick, 1000)
+        main_column = Cuboid(build_ele, True, com_prop, attach_point, column_bottom, texture, column_length, column_thickness, column_height, col_z_rotation)
+        next_column = Cuboid(build_ele, False, help_prop, attach_point, column_height, texture, next_col_length, next_col_thick, 1000, col_z_rotation)
 
         # Constructions line to align center point
         frst_line   = Geometry.Line3D(0, 0, 0, column_length, column_thickness, 0)
@@ -326,32 +347,56 @@ def create_element(build_ele : BuildingElement,
         pyp_util.add_pythonpart_view_2d(BasisElements.ModelElement3D(help_prop, texture, intersect_column))
 
     # Create the handles
-    for item in main_column.handles_prop:
-        handle = HandleProperties(item.handle_id,
-                                  item.handle_point,
-                                  item.ref_point,
-                                  [HandleParameterData(item.handle_param_data, HandleParameterType.POINT_DISTANCE)],
-                                  item.handle_move_dir
-                                  )
-        handle.info_text = item.handle_info_text
-        handle_list.append(handle)
+    if is_showing_handles:
+        # Z rotation
+        if choice == "rectangle":
+            handle = HandleProperties(handle_id         = "ColumnRotationHandle",
+                                      handle_point      = main_column.points_list[10],
+                                      ref_point         = main_column.points_list[0],
+                                      handle_param_data = [HandleParameterData("ColumnRotAngleZ", HandleParameterType.ANGLE)],
+                                      handle_move_dir   = HandleDirection.ANGLE,
+                                      info_text         = "Rotation suivant Z")
+            handle_list.append(handle)
+
+        for item in main_column.handles_prop:
+            handle = HandleProperties(handle_id         = item.handle_id,
+                                      handle_point      = item.handle_point,
+                                      ref_point         = item.ref_point,
+                                      handle_param_data = [HandleParameterData(item.handle_param_data, HandleParameterType.POINT_DISTANCE)],
+                                      handle_move_dir   = item.handle_move_dir,
+                                      distance_factor   = item.distance_factor,
+                                      info_text         = item.handle_info_text
+                                      )
+            handle_list.append(handle)
 
     # Create the annotation
     if is_showing_annotation:
+        # Set text value
         text = f"{column_id} {main_column.name_dim}"
         if column_concrete_gr_value > 4:
             text += f"\n{column_concrete_gr}"
-        origin = Geometry.Point2D(text_origin)
+        # Set origin of text
+        origin = text_origin - main_column.points_list[0]
+        # Text remains horizontal
+        placement_mat = Geometry.Matrix3D()
+        if choice == "rectangle":
+            rotation_axis  = Geometry.Line3D(Geometry.Point3D(), Geometry.Point3D(0, 0, 1))
+            rotation_angle = Geometry.Angle.FromDeg(-col_z_rotation)
+            placement_mat.SetRotation(rotation_axis,rotation_angle)
+        origin = Geometry.Transform(origin, placement_mat)
+        # Transform Point3D to Point2D
+        origin = Geometry.Point2D(origin)
+        # Add text to view
         pyp_util.add_pythonpart_view_2d(BasisElements.TextElement(text_com_prop, text_prop, text, origin))
 
-        text_handle = HandleProperties("Text",
-                                       text_origin,
-                                       Geometry.Point3D(),
-                                       [HandleParameterData("TextOrigin", HandleParameterType.POINT, False)],
-                                       HandleDirection.XYZ_DIR
+        text_handle = HandleProperties(handle_id         = "Text",
+                                       handle_point      = text_origin,
+                                       ref_point         = main_column.points_list[0],
+                                       handle_param_data = [HandleParameterData("TextOrigin", HandleParameterType.POINT, False)],
+                                       handle_move_dir   = HandleDirection.XYZ_DIR,
+                                       info_text         = "Origine du texte"
                                        )
         text_handle.handle_type = IFWInput.ElementHandleType.HANDLE_SQUARE_RED
-        text_handle.info_text   = "Origine du texte"
         handle_list.append(text_handle)
 
     # Create hatch
@@ -371,7 +416,6 @@ def create_element(build_ele : BuildingElement,
             rebar.SetCommonProperties(reinf_prop)
 
         pyp_util.add_reinforcement_elements(reinf_ele_list)
-        main_column.create_reinf_attributes()
 
     #
     # Attributes
@@ -478,6 +522,10 @@ def create_element(build_ele : BuildingElement,
 
     # Reference point
     placement_mat = Geometry.Matrix3D()
+    if choice == "rectangle":
+        rotation_axis  = Geometry.Line3D(Geometry.Point3D(), Geometry.Point3D(0, 0, 1))
+        rotation_angle = Geometry.Angle.FromDeg(col_z_rotation)
+        placement_mat.SetRotation(rotation_axis,rotation_angle)
     placement_mat.SetTranslation(Geometry.Vector3D(main_column.placement_pt))
 
     # Create the PythonPart
@@ -615,38 +663,50 @@ class Objects3D:
         self.x_offset       = 0
         self.y_offset       = 0
         self.z_offset       = column_bottom
+        self.points_list    = []
         self.reinf_ele_list = []
 
 
-    def calcul_dimensions(self):
+    def calcul_dimensions(self) -> tuple:
         pass
 
 
-    def create_geo(self):
+    def create_geo(self) -> Geometry.BRep3D:
         pass
 
 
-    def create_hatch_geo(self):
+    def create_hatch_geo(self) -> Geometry.Polygon2D:
         pass
 
 
-    def add_view(self):
+    def add_view(self) -> BasisElements.ModelElement3D:
         object_3d = BasisElements.ModelElement3D(self.object_prop, self.texture, self.geo)
         return object_3d
 
 
-    def attachment_point(self):
+    def attachment_point(self) -> Geometry.Point3D:
         pass
 
 
-    def create_reinforcement(self):
+    def apply_transfo_matrix_to_handles(self) -> None:
+        placement_mat = Geometry.Matrix3D()
+        if self.__class__.__name__ == "Cuboid":
+            rotation_axis  = Geometry.Line3D(Geometry.Point3D(), Geometry.Point3D(0, 0, 1))
+            rotation_angle = Geometry.Angle.FromDeg(self.col_z_rotation)
+            placement_mat.SetRotation(rotation_axis,rotation_angle)
+        placement_mat.SetTranslation(Geometry.Vector3D(self.placement_pt))
+
+        self.points_list = [Geometry.Transform(point, placement_mat) for point in self.points_list]
+
+
+    def create_reinforcement(self) -> List[Reinforcement.BarPlacement]:
         self.reinf_ele = Reinforcement3D(self.build_ele)
         reinf_ele_list = self.reinf_ele.create_rebars()
 
         return reinf_ele_list
 
 
-    def create_reinf_attributes(self):
+    def create_reinf_attributes(self) -> tuple:
         pass
 
 
@@ -654,68 +714,157 @@ class Handle:
     """Definition of class Handle
     """
     def __init__(self,
-                 placement_pt      : Geometry.Point3D,
                  handle_id         : str,
                  handle_point      : Geometry.Point3D,
                  ref_point         : Geometry.Point3D,
                  handle_param_data : str,
                  handle_move_dir   : HandleDirection,
-                 handle_info_text  : str):
+                 handle_info_text  : str,
+                 distance_factor   : float):
         self.handle_id         = handle_id
-        self.handle_point      = placement_pt + handle_point
-        self.ref_point         = placement_pt + ref_point
+        self.handle_point      = handle_point
+        self.ref_point         = ref_point
         self.handle_param_data = handle_param_data
         self.handle_move_dir   = handle_move_dir
         self.handle_info_text  = handle_info_text
+        self.distance_factor   = distance_factor
 
 
 class Cuboid(Objects3D):
     """Definition of class Cuboid
     """
     def __init__(self,
-                 build_ele     : BuildingElement,
-                 is_main_col   : bool,
-                 object_prop   : BaseElements.CommonProperties,
-                 attach_point  : int,
-                 column_bottom : float,
-                 texture       : BasisElements.TextureDefinition,
-                 column_length : float,
-                 column_thick  : float,
-                 column_height : float):
+                 build_ele      : BuildingElement,
+                 is_main_col    : bool,
+                 object_prop    : BaseElements.CommonProperties,
+                 attach_point   : int,
+                 column_bottom  : float,
+                 texture        : BasisElements.TextureDefinition,
+                 column_length  : float,
+                 column_thick   : float,
+                 column_height  : float,
+                 col_z_rotation : float):
         Objects3D.__init__(self, build_ele, is_main_col, object_prop, attach_point, column_bottom, texture)
-        self.column_length = column_length
-        self.column_thick  = column_thick
-        self.column_height = column_height
-        self.name_dim      = f"{round(column_thick / 10)} x {round(column_length / 10)}"
-        self.placement_pt  = self.attachment_point()
-        self.handles_prop  = [Handle(self.placement_pt,
-                                     "ColumnLengthHandle",
-                                     Geometry.Point3D(self.column_length, 0, 0),
-                                     Geometry.Point3D(),
-                                     "ColumnLength",
-                                     HandleDirection.X_DIR,
-                                     "Longueur"
-                                     ),
-                              Handle(self.placement_pt,
-                                     "ColumnThickHandle",
-                                     Geometry.Point3D(self.column_length, self.column_thick, 0),
-                                     Geometry.Point3D(self.column_length, 0, 0),
-                                     "ColumnThick",
-                                     HandleDirection.Y_DIR,
-                                     "Largeur"
-                                     ),
-                              Handle(self.placement_pt,
-                                     "ColumnHeightHandle",
-                                     Geometry.Point3D(0, 0, self.column_height),
-                                     Geometry.Point3D(),
+        self.column_length  = column_length
+        self.column_thick   = column_thick
+        self.column_height  = column_height
+        self.col_z_rotation = col_z_rotation
+        self.name_dim       = f"{round(column_thick / 10)} x {round(column_length / 10)}"
+        self.placement_pt   = self.attachment_point()
+        # Set points list
+        """
+        Points List :
+        5        6         7
+          ---------------
+          |              |
+        3 |      8       | 4
+          |              |
+          ---------------
+        0   10   1         2
+        """
+        self.points_list = [Geometry.Point3D(),                                                 # 0
+                            Geometry.Point3D(self.column_length / 2, 0, 0),                     # 1
+                            Geometry.Point3D(self.column_length, 0, 0),                         # 2
+                            Geometry.Point3D(0, self.column_thick / 2, 0),                      # 3
+                            Geometry.Point3D(self.column_length, self.column_thick / 2, 0),     # 4
+                            Geometry.Point3D(0, self.column_thick, 0),                          # 5
+                            Geometry.Point3D(self.column_length / 2, self.column_thick, 0),     # 6
+                            Geometry.Point3D(self.column_length, self.column_thick, 0),         # 7
+                            Geometry.Point3D(self.column_length / 2, self.column_thick / 2, 0), # 8
+                            Geometry.Point3D(0, 0, self.column_height),                         # 9
+                            Geometry.Point3D(self.column_length / 4, 0, 0)                      # 10
+                            ]
+        self.apply_transfo_matrix_to_handles()
+        # Set handles
+        self.handles_prop  = [Handle("ColumnHeightHandle",
+                                     self.points_list[9],
+                                     self.points_list[0],
                                      "ColumnHeight",
                                      HandleDirection.Z_DIR,
-                                     "Hauteur"
+                                     "Hauteur",
+                                     1
                                      )
                               ]
+        # Handle dictionary : [handle point, base point, factor] with 2 handles if in middle
+        handle_length_dict = {1 : [self.points_list[7], self.points_list[5], 1],
+                              2 : [[self.points_list[7], self.points_list[6], 2],
+                                   [self.points_list[5], self.points_list[6], 2]],
+                              3 : [self.points_list[5], self.points_list[7], 1],
+                              4 : [self.points_list[4], self.points_list[3], 1],
+                              5 : [[self.points_list[4], self.points_list[8], 2],
+                                   [self.points_list[3], self.points_list[8], 2]],
+                              6 : [self.points_list[3], self.points_list[4], 1],
+                              7 : [self.points_list[2], self.points_list[0], 1],
+                              8 : [[self.points_list[2], self.points_list[1], 2],
+                                   [self.points_list[0], self.points_list[1], 2]],
+                              9 : [self.points_list[0], self.points_list[2], 1]
+                              }
+        handle_thick_dict  = {1 : [self.points_list[2], self.points_list[7], 1],
+                              2 : [self.points_list[1], self.points_list[6], 1],
+                              3 : [self.points_list[0], self.points_list[5], 1],
+                              4 : [[self.points_list[7], self.points_list[4], 2],
+                                   [self.points_list[2], self.points_list[4], 2]],
+                              5 : [[self.points_list[6], self.points_list[8], 2],
+                                   [self.points_list[1], self.points_list[8], 2]],
+                              6 : [[self.points_list[5], self.points_list[3], 2],
+                                   [self.points_list[0], self.points_list[3], 2]],
+                              7 : [self.points_list[7], self.points_list[2], 1],
+                              8 : [self.points_list[6], self.points_list[1], 1],
+                              9 : [self.points_list[5], self.points_list[0], 1]
+                              }
+        # Length handle
+        if self.attach_point in [2, 5, 8]:
+            handles_param = handle_length_dict[self.attach_point]
+            for ensemble in handles_param:
+                handle_pnt, base_pnt, factor = ensemble
+                self.handles_prop.append(Handle("ColumnLengthHandle",
+                                                handle_pnt,
+                                                base_pnt,
+                                                "ColumnLength",
+                                                HandleDirection.X_DIR,
+                                                "Longueur",
+                                                factor
+                                                )
+                                         )
+        else:
+            handle_pnt, base_pnt, factor = handle_length_dict[self.attach_point]
+            self.handles_prop.append(Handle("ColumnLengthHandle",
+                                            handle_pnt,
+                                            base_pnt,
+                                            "ColumnLength",
+                                            HandleDirection.X_DIR,
+                                            "Longueur",
+                                            factor
+                                            )
+                                     )
+        # Thickness handle
+        if self.attach_point in [4, 5, 6]:
+            handles_param = handle_thick_dict[self.attach_point]
+            for ensemble in handles_param:
+                handle_pnt, base_pnt, factor = ensemble
+                self.handles_prop.append(Handle("ColumnThickHandle",
+                                                handle_pnt,
+                                                base_pnt,
+                                                "ColumnThick",
+                                                HandleDirection.Y_DIR,
+                                                "Largeur",
+                                                factor
+                                                )
+                                         )
+        else:
+            handle_pnt, base_pnt, factor = handle_thick_dict[self.attach_point]
+            self.handles_prop.append(Handle("ColumnThickHandle",
+                                            handle_pnt,
+                                            base_pnt,
+                                            "ColumnThick",
+                                            HandleDirection.Y_DIR,
+                                            "Largeur",
+                                            factor
+                                            )
+                                     )
 
 
-    def calcul_dimensions(self):
+    def calcul_dimensions(self) -> tuple:
         err, volume, surface, center_of_gravity = Geometry.CalcMass(self.geo)
         volume    = volume * 1e-9
         length    = self.column_length * 1e-3
@@ -727,7 +876,7 @@ class Cuboid(Objects3D):
         return (length, thickness, radius, height, surface, volume)
 
 
-    def create_geo(self):
+    def create_geo(self) -> Geometry.BRep3D:
         placement = Geometry.AxisPlacement3D(Geometry.Point3D(),
                                              Geometry.Vector3D(1, 0, 0),
                                              Geometry.Vector3D(0, 0, 1)
@@ -744,7 +893,7 @@ class Cuboid(Objects3D):
         return self.geo
 
 
-    def create_hatch_geo(self):
+    def create_hatch_geo(self) -> Geometry.Polygon2D:
         hatch_geo = Geometry.Polygon2D.CreateRectangle(Geometry.Point2D(),
                                                        Geometry.Point2D(self.column_length, self.column_thick)
                                                        )
@@ -752,7 +901,7 @@ class Cuboid(Objects3D):
         return hatch_geo
 
 
-    def attachment_point(self):
+    def attachment_point(self) -> Geometry.Point3D:
         if self.attach_point in {2, 5, 8}:
             self.x_offset = -self.column_length / 2
         elif self.attach_point in {3, 6, 9}:
@@ -768,7 +917,7 @@ class Cuboid(Objects3D):
         return placement_pt
 
 
-    def create_reinf_attributes(self):
+    def create_reinf_attributes(self) -> tuple:
         # Init values
         weight                    = 0
         quantity                  = 0
@@ -876,26 +1025,81 @@ class Cylinder(Objects3D):
         self.column_height = column_height
         self.name_dim      = f"Ø{round(2 * column_rad / 10)}"
         self.placement_pt  = self.attachment_point()
-        self.handles_prop  = [Handle(self.placement_pt,
-                                     "ColumnRadiusHandle",
-                                     Geometry.Point3D(self.column_radius, 0, 0),
-                                     Geometry.Point3D(),
-                                     "ColumnRadius",
-                                     HandleDirection.X_DIR,
-                                     "Rayon"
-                                     ),
-                              Handle(self.placement_pt,
-                                     "ColumnHeightHandle",
-                                     Geometry.Point3D(0, 0, self.column_height),
-                                     Geometry.Point3D(),
+        # Set points list
+        """
+        Points List :
+        6        7         8
+          ---------------
+          |              |
+        4 |      0       | 5
+          |              |
+          ---------------
+        1        2         3
+        """
+        self.points_list = [Geometry.Point3D(),                                             # 0
+                            Geometry.Point3D(-self.column_radius, -self.column_radius, 0),  # 1
+                            Geometry.Point3D(0, -self.column_radius, 0),                    # 2
+                            Geometry.Point3D(self.column_radius, -self.column_radius, 0),   # 3
+                            Geometry.Point3D(-self.column_radius, 0, 0),                    # 4
+                            Geometry.Point3D(self.column_radius, 0, 0),                     # 5
+                            Geometry.Point3D(-self.column_radius, self.column_radius, 0),   # 6
+                            Geometry.Point3D(0, self.column_radius, 0),                     # 7
+                            Geometry.Point3D(self.column_radius, self.column_radius, 0),    # 8
+                            Geometry.Point3D(0, 0, self.column_height)                      # 9
+                            ]
+        self.apply_transfo_matrix_to_handles()
+        # Set handles
+        self.handles_prop  = [Handle("ColumnHeightHandle",
+                                     self.points_list[9],
+                                     self.points_list[0],
                                      "ColumnHeight",
                                      HandleDirection.Z_DIR,
-                                     "Hauteur"
+                                     "Hauteur",
+                                     1
                                      )
                               ]
+        # Handle dictionary : [handle point, base point, text, factor] with 2 handles if in middle
+        handle_radius_dict = {1 : [self.points_list[8], self.points_list[6], "Diamètre", 0.5],
+                              2 : [[self.points_list[8], self.points_list[7], "Rayon", 1],
+                                   [self.points_list[6], self.points_list[7], "Rayon", 1]],
+                              3 : [self.points_list[6], self.points_list[8], "Diamètre", 0.5],
+                              4 : [self.points_list[5], self.points_list[4], "Diamètre", 0.5],
+                              5 : [[self.points_list[5], self.points_list[0], "Rayon", 1],
+                                   [self.points_list[4], self.points_list[0], "Rayon", 1]],
+                              6 : [self.points_list[4], self.points_list[5], "Diamètre", 0.5],
+                              7 : [self.points_list[3], self.points_list[1], "Diamètre", 0.5],
+                              8 : [[self.points_list[3], self.points_list[2], "Rayon", 1],
+                                   [self.points_list[1], self.points_list[2], "Rayon", 1]],
+                              9 : [self.points_list[1], self.points_list[3], "Diamètre", 0.5]
+                              }
+        # Radius handle
+        if self.attach_point in [2, 5, 8]:
+            handles_param = handle_radius_dict[self.attach_point]
+            for ensemble in handles_param:
+                handle_pnt, base_pnt, text, factor = ensemble
+                self.handles_prop.append(Handle("ColumnRadiusHandle",
+                                                handle_pnt,
+                                                base_pnt,
+                                                "ColumnRadius",
+                                                HandleDirection.X_DIR,
+                                                text,
+                                                factor
+                                                )
+                                         )
+        else:
+            handle_pnt, base_pnt, text, factor = handle_radius_dict[self.attach_point]
+            self.handles_prop.append(Handle("ColumnRadiusHandle",
+                                            handle_pnt,
+                                            base_pnt,
+                                            "ColumnRadius",
+                                            HandleDirection.X_DIR,
+                                            text,
+                                            factor
+                                            )
+                                     )
 
 
-    def calcul_dimensions(self):
+    def calcul_dimensions(self) -> tuple:
         err, volume, surface, center_of_gravity = Geometry.CalcMass(self.geo)
         volume    = volume * 1e-9
         length    = 0
@@ -907,7 +1111,7 @@ class Cylinder(Objects3D):
         return (length, thickness, radius, height, surface, volume)
 
 
-    def create_geo(self):
+    def create_geo(self) -> Geometry.BRep3D:
         placement = Geometry.AxisPlacement3D(Geometry.Point3D(),
                                              Geometry.Vector3D(1, 0, 0),
                                              Geometry.Vector3D(0, 0, 1)
@@ -923,7 +1127,7 @@ class Cylinder(Objects3D):
         return self.geo
 
 
-    def create_hatch_geo(self):
+    def create_hatch_geo(self) -> Geometry.Polygon2D:
         line          = Geometry.Line3D(0, 0, 0, self.column_radius, 0, 0)
         angle         = Geometry.Angle()
         angle.Deg     = 10
@@ -942,7 +1146,7 @@ class Cylinder(Objects3D):
         return hatch_geo
 
 
-    def attachment_point(self):
+    def attachment_point(self) -> Geometry.Point3D:
         if self.attach_point in {1, 4, 7}:
             self.x_offset = self.column_radius
         elif self.attach_point in {3, 6, 9}:
@@ -958,7 +1162,7 @@ class Cylinder(Objects3D):
         return placement_pt
 
 
-    def create_reinf_attributes(self):
+    def create_reinf_attributes(self) -> tuple:
         # Init values
         weight                    = 0
         quantity                  = 0

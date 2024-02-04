@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\reinf_concr_column.py</Name>
         <Title>Poteau Béton Armé - API2GETHER</Title>
-        <Version>1.01</Version>
+        <Version>1.02</Version>
     </Script>
 
 	<Constants>
@@ -349,6 +349,19 @@
 				</Parameter>
             </Parameter>
 
+			<Parameter>
+				<Name>AttachmentSeparator</Name>
+				<ValueType>Separator</ValueType>
+			</Parameter>
+
+			<Parameter>
+				<Name>ShowHandlesCheckBox</Name>
+				<Text>Afficher les poignées ?</Text>
+				<TextId>e_SHOW_HANDLES</TextId>
+				<Value>True</Value>
+				<ValueType>CheckBox</ValueType>
+			</Parameter>
+
 		</Parameter>
 
     </Page>
@@ -375,7 +388,7 @@
 			<Parameter>
 				<Name>TextCommonProperties</Name>
 				<Text></Text>
-				<Value></Value>
+				<Value>TextCommonProperties(Layer(3718)),TextCommonProperties(Pen(1)),TextCommonProperties(Stroke(1)),TextCommonProperties(Color(1)),TextCommonProperties(PenByLayer(1)),TextCommonProperties(StrokeByLayer(1)),TextCommonProperties(ColorByLayer(1))</Value>
 				<ValueType>CommonProperties</ValueType>
 			</Parameter>
 
@@ -398,14 +411,6 @@
 				<Value>Aligner à Gauche</Value>
 				<ValueList>Aligner à Gauche|Centrer|Aligner à Droite</ValueList>
 				<ValueType>StringComboBox</ValueType>
-			</Parameter>
-
-			<Parameter>
-				<Name>TextOrigin</Name>
-				<Text> </Text>
-				<Value>Point3D(0, -1000, 0)</Value>
-				<ValueType>Point3D</ValueType>
-				<Visible>False</Visible>
 			</Parameter>
 
 		</Parameter>
@@ -856,6 +861,33 @@ return f"barres latérales (Ø{SecondBarDiameter}) supérieures aux barres d'ang
 				<Value>3864</Value>
 				<ValueType>Layer</ValueType>
 			</Parameter>
+		</Parameter>
+
+	</Page>
+
+	<Page>
+
+        <Name>__HiddenPage__</Name>
+
+		<Parameter>
+			<Name>ColumnRotAngleZ</Name>
+			<Text></Text>
+			<Value>0</Value>
+			<ValueType>Angle</ValueType>
+		</Parameter>
+
+		<Parameter>
+			<Name>TextOrigin</Name>
+			<Text></Text>
+			<Value>Point3D(0, -1000, 0)</Value>
+			<ValueType>Point3D</ValueType>
+		</Parameter>
+
+		<Parameter>
+			<Name>TextRotAngle</Name>
+			<Text></Text>
+			<Value>0</Value>
+			<ValueType>Angle</ValueType>
 		</Parameter>
 
 	</Page>
