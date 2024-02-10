@@ -156,16 +156,15 @@ def modify_control_properties(build_ele      : BuildingElement,
                             build_ele.FirstBarDiameter.value  = long_rebars_diameter
                             build_ele.SecondBarDiameter.value = long_rebars_diameter
 
-                        concr_cover = build_ele.ReinfConcreteCover.value
-                        # Rectangular column
-                        if build_ele.ChoiceRadioGroup.value == "rectangle":
+                        esp_min = 100
+                        esp_max = 400
 
+                        concr_cover = build_ele.ReinfConcreteCover.value
+
+                        if build_ele.ChoiceRadioGroup.value == "rectangle":
                             length      = max(build_ele.ColumnLength.value, build_ele.ColumnThick.value) - 2 * concr_cover
                             thickness   = min(build_ele.ColumnLength.value, build_ele.ColumnThick.value) - 2 * concr_cover
                             nbr_rebars  = int(long_rebars_quantity) - 4 # 4 => one main longitudinal rebar for each corner
-
-                            esp_min = 100
-                            esp_max = 400
 
                             min_value_in_length = max(0, math.ceil(length / esp_max) - 1)
                             max_value_in_length = max(min_value_in_length, math.floor(length / esp_min) - 1)
@@ -190,7 +189,8 @@ def modify_control_properties(build_ele      : BuildingElement,
                             main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, thickness)
 
                         else:
-                            diameter = 2 * (build_ele.ColumnRadius.value - concr_cover)
+                            nbr_rebars = int(long_rebars_quantity)
+                            diameter   = 2 * (build_ele.ColumnRadius.value - concr_cover)
 
                             min_value_circ = max(4, math.ceil(diameter / esp_max))
                             max_value_circ = max(min_value_circ, math.floor(diameter / esp_min))
