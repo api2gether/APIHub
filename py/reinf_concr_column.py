@@ -186,7 +186,7 @@ def modify_control_properties(build_ele      : BuildingElement,
                             else:
                                 build_ele.ScndBarRectQttInThick.value = init_qtt_in_thick
 
-                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, thickness)
+                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, min(build_ele.ColumnLength.value, build_ele.ColumnThick.value))
 
                         else:
                             nbr_rebars = int(long_rebars_quantity)
@@ -198,7 +198,7 @@ def modify_control_properties(build_ele      : BuildingElement,
                             nbr_rebars = max(min_value_circ, min(nbr_rebars, max_value_circ))
                             build_ele.RebarCircQtt.value = nbr_rebars
 
-                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, min(build_ele.ColumnLength.value, build_ele.ColumnThick.value))
+                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, 2 * build_ele.ColumnRadius.value)
 
                         # Stirrup diameter and spacing
                         scnd_stirrup_max_spac  = 0.6 * main_stirrup_max_spac

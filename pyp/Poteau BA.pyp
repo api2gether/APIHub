@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\reinf_concr_column.py</Name>
         <Title>Poteau Béton Armé - API2GETHER</Title>
-        <Version>1.04</Version>
+        <Version>1.05</Version>
     </Script>
 
 	<Constants>
