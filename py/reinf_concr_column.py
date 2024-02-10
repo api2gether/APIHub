@@ -7,6 +7,7 @@ Author:
 from typing import List
 
 import math
+import csv
 
 import NemAll_Python_BaseElements       as BaseElements
 import NemAll_Python_BasisElements      as BasisElements
@@ -93,6 +94,9 @@ def initialize_control_properties(build_ele      : BuildingElement,
         ctrl_prop_util : control properties utility
         doc            : document
     """
+    if build_ele.CSVFilePath.value:
+        ctrl_prop_util.set_enable_condition("ImportDataButton", "True")
+
     set_constructive_dispositions(build_ele, ctrl_prop_util)
     calcul_as_real(build_ele)
 
@@ -114,12 +118,109 @@ def modify_control_properties(build_ele      : BuildingElement,
     Returns:
         True if an update of the property palette is necessary, False otherwise
     """
-    if value_name =="ChoiceRadioGroup":
+    if value_name == "ChoiceRadioGroup":
         if build_ele.ChoiceRadioGroup.value == "circle":
             build_ele.ColumnRotAngleZ.value = 0
             build_ele.TextRotAngle.value    = 0
 
             return True
+
+    if event_id == build_ele.IMPORT_REINF_DATA_FROM_CSV:
+        # Path of CSV file
+        csv_file_path = build_ele.CSVFilePath.value
+
+        # Initializing a list to store the data
+        data = []
+
+        # Opening and reading the CSV file
+        with open(csv_file_path, mode='r', encoding='utf-8') as file:
+            csv_reader = csv.DictReader(file)
+
+            # Iterating over each row in the CSV file
+            for row in csv_reader:
+                # Search column name
+                if row['Repère'] == build_ele.ColumnId.value:
+                    # Extracting the required data
+                    long_rebars_diameter = row.get('Diamètre Armatures Longitudinales', '').strip()
+                    long_rebars_quantity = row.get('Quantité Armatures Longitudinales', '').strip()
+                    stir_rebars_diameter = row.get('Diamètre Armatures Transversales', '').strip()
+                    A_stirrup_spacing    = row.get('Espacement A Armatures Transversales', '').strip()
+                    B_stirrup_spacing    = row.get('Espacement B Armatures Transversales', '').strip()
+                    C_stirrup_spacing    = row.get('Espacement C Armatures Transversales', '').strip()
+
+                    # Change value if not empty
+                    if all([long_rebars_diameter, long_rebars_quantity, stir_rebars_diameter, A_stirrup_spacing, B_stirrup_spacing, C_stirrup_spacing]):
+                        long_rebars_diameter = int(long_rebars_diameter)
+                        valid_diameters = [8, 10, 12, 14, 16, 20]
+                        if long_rebars_diameter in valid_diameters:
+                            build_ele.FirstBarDiameter.value  = long_rebars_diameter
+                            build_ele.SecondBarDiameter.value = long_rebars_diameter
+
+                        concr_cover = build_ele.ReinfConcreteCover.value
+                        # Rectangular column
+                        if build_ele.ChoiceRadioGroup.value == "rectangle":
+
+                            length      = max(build_ele.ColumnLength.value, build_ele.ColumnThick.value) - 2 * concr_cover
+                            thickness   = min(build_ele.ColumnLength.value, build_ele.ColumnThick.value) - 2 * concr_cover
+                            nbr_rebars  = int(long_rebars_quantity) - 4 # 4 => one main longitudinal rebar for each corner
+
+                            esp_min = 100
+                            esp_max = 400
+
+                            min_value_in_length = max(0, math.ceil(length / esp_max) - 1)
+                            max_value_in_length = max(min_value_in_length, math.floor(length / esp_min) - 1)
+
+                            min_value_in_thick = max(0, math.ceil(thickness / esp_max) - 1)
+                            max_value_in_thick = max(min_value_in_thick, math.floor(thickness / esp_min) - 1)
+
+                            init_qtt_in_length = max(min_value_in_length, math.ceil((nbr_rebars - 2 * min_value_in_thick) / 2))
+                            init_qtt_in_thick  = min_value_in_thick
+
+                            if init_qtt_in_length > max_value_in_length:
+                                build_ele.ScndBarRectQttInLength.value = max_value_in_length
+                                init_qtt_in_thick = nbr_rebars - 2 * max_value_in_length
+                            else:
+                                build_ele.ScndBarRectQttInLength.value = init_qtt_in_length
+
+                            if init_qtt_in_thick > max_value_in_thick:
+                                build_ele.ScndBarRectQttInThick.value = max_value_in_thick
+                            else:
+                                build_ele.ScndBarRectQttInThick.value = init_qtt_in_thick
+
+                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, thickness)
+
+                        else:
+                            diameter = 2 * (build_ele.ColumnRadius.value - concr_cover)
+
+                            min_value_circ = max(4, math.ceil(diameter / esp_max))
+                            max_value_circ = max(min_value_circ, math.floor(diameter / esp_min))
+
+                            nbr_rebars = max(min_value_circ, min(nbr_rebars, max_value_circ))
+                            build_ele.RebarCircQtt.value = nbr_rebars
+
+                            main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, min(build_ele.ColumnLength.value, build_ele.ColumnThick.value))
+
+                        # Stirrup diameter and spacing
+                        scnd_stirrup_max_spac  = 0.6 * main_stirrup_max_spac
+
+                        A_stirrup_spacing = max(main_stirrup_max_spac, float(A_stirrup_spacing))
+                        B_stirrup_spacing = max(scnd_stirrup_max_spac, float(B_stirrup_spacing))
+                        C_stirrup_spacing = max(scnd_stirrup_max_spac, float(C_stirrup_spacing))
+
+                        main_stirrup = build_ele.MainStirrup.value
+                        main_stirrup._replace(Spacing = A_stirrup_spacing)
+                        valid_diameters = [6, 8, 10]
+                        stir_rebars_diameter = int(stir_rebars_diameter)
+                        if stir_rebars_diameter in valid_diameters:
+                            main_stirrup._replace(Diameter = stir_rebars_diameter)
+
+                        stirrup_list = build_ele.StirrupList.value
+                        stirrup_list[0] = stirrup_list[0]._replace(Spacing = B_stirrup_spacing)
+                        stirrup_list[1] = stirrup_list[1]._replace(Spacing = C_stirrup_spacing)
+                        break
+
+        calcul_as_real(build_ele)
+        return True
 
     if event_id == build_ele.CALC_LONG_REBAR_DIAM:
         as_min = build_ele.AsMinDouble.value
@@ -167,10 +268,15 @@ def modify_control_properties(build_ele      : BuildingElement,
 
         return True
 
-    if value_name =="ColumnRotAngleZ":
+    if value_name == "ColumnRotAngleZ":
         build_ele.TextRotAngle.value = -build_ele.ColumnRotAngleZ.value
 
         return True
+
+    if value_name == "CSVFilePath":
+        if build_ele.CSVFilePath.value:
+            ctrl_prop_util.set_enable_condition("ImportDataButton", "True")
+            return True
 
     return False
 
@@ -221,7 +327,6 @@ def create_element(build_ele : BuildingElement,
         result of the created element
     """
     model_ele_list  = []
-    model_text_list = []
     handle_list     = []
 
     attr_list      = BuildingElementAttributeList()
@@ -267,6 +372,8 @@ def create_element(build_ele : BuildingElement,
 
     plane_ref: ArchElements.PlaneReferences = build_ele.PlaneReferences.value
     column_bottom = plane_ref.GetAbsBottomElevation()
+
+    slab_height = build_ele.SlabHeight.value
 
     texture = BasisElements.TextureDefinition(build_ele.MaterialButton.value)
 
@@ -318,8 +425,8 @@ def create_element(build_ele : BuildingElement,
 
     # Create 3D object
     if choice == "rectangle":
-        main_column = Cuboid(build_ele, True, com_prop, attach_point, column_bottom, texture, column_length, column_thickness, column_height, col_z_rotation)
-        next_column = Cuboid(build_ele, False, help_prop, attach_point, column_height, texture, next_col_length, next_col_thick, 1000, col_z_rotation)
+        main_column = Cuboid(build_ele, True, com_prop, attach_point, column_bottom, texture, column_length, column_thickness, column_height, col_z_rotation, slab_height)
+        next_column = Cuboid(build_ele, False, help_prop, attach_point, column_height, texture, next_col_length, next_col_thick, 1000, col_z_rotation, slab_height)
 
         # Constructions line to align center point
         frst_line   = Geometry.Line3D(0, 0, 0, column_length, column_thickness, 0)
@@ -328,8 +435,8 @@ def create_element(build_ele : BuildingElement,
         to_point    = frst_line.GetCenterPoint()
 
     else:
-        main_column = Cylinder(build_ele, True, com_prop, attach_point, column_bottom, texture, column_radius, column_height)
-        next_column = Cylinder(build_ele, False, help_prop, attach_point, column_height, texture, next_col_radius, 1000)
+        main_column = Cylinder(build_ele, True, com_prop, attach_point, column_bottom, texture, column_radius, column_height, slab_height)
+        next_column = Cylinder(build_ele, False, help_prop, attach_point, column_height, texture, next_col_radius, 1000, slab_height)
 
         from_point = to_point = Geometry.Point3D()
 
@@ -743,13 +850,15 @@ class Cuboid(Objects3D):
                  column_length  : float,
                  column_thick   : float,
                  column_height  : float,
-                 col_z_rotation : float):
+                 col_z_rotation : float,
+                 slab_height    : float):
         Objects3D.__init__(self, build_ele, is_main_col, object_prop, attach_point, column_bottom, texture)
         self.column_length  = column_length
         self.column_thick   = column_thick
         self.column_height  = column_height
         self.col_z_rotation = col_z_rotation
-        self.name_dim       = f"{round(column_thick / 10)} x {round(column_length / 10)}"
+        self.slab_height    = slab_height
+        self.name_dim       = f"{round(column_thick / 10)}x{round(column_length / 10)}"
         self.placement_pt   = self.attachment_point()
         # Set points list
         """
@@ -772,7 +881,8 @@ class Cuboid(Objects3D):
                             Geometry.Point3D(self.column_length, self.column_thick, 0),         # 7
                             Geometry.Point3D(self.column_length / 2, self.column_thick / 2, 0), # 8
                             Geometry.Point3D(0, 0, self.column_height),                         # 9
-                            Geometry.Point3D(self.column_length / 4, 0, 0)                      # 10
+                            Geometry.Point3D(self.column_length / 4, 0, 0),                     # 10
+                            Geometry.Point3D(0, 0, self.column_height - self.slab_height)       # 11
                             ]
         self.apply_transfo_matrix_to_handles()
         # Set handles
@@ -782,6 +892,14 @@ class Cuboid(Objects3D):
                                      "ColumnHeight",
                                      HandleDirection.Z_DIR,
                                      "Hauteur",
+                                     1
+                                     ),
+                              Handle("SlabHeightHandle",
+                                     self.points_list[11],
+                                     self.points_list[9],
+                                     "SlabHeight",
+                                     HandleDirection.Z_DIR,
+                                     "Hauteur Poutre / Dalle",
                                      1
                                      )
                               ]
@@ -1019,10 +1137,12 @@ class Cylinder(Objects3D):
                  column_bottom : float,
                  texture       : BasisElements.TextureDefinition,
                  column_rad    : float,
-                 column_height : float):
+                 column_height : float,
+                 slab_height   : float):
         Objects3D.__init__(self, build_ele, is_main_col, object_prop, attach_point, column_bottom, texture)
         self.column_radius = column_rad
         self.column_height = column_height
+        self.slab_height   = slab_height
         self.name_dim      = f"Ø{round(2 * column_rad / 10)}"
         self.placement_pt  = self.attachment_point()
         # Set points list
@@ -1045,7 +1165,8 @@ class Cylinder(Objects3D):
                             Geometry.Point3D(-self.column_radius, self.column_radius, 0),   # 6
                             Geometry.Point3D(0, self.column_radius, 0),                     # 7
                             Geometry.Point3D(self.column_radius, self.column_radius, 0),    # 8
-                            Geometry.Point3D(0, 0, self.column_height)                      # 9
+                            Geometry.Point3D(0, 0, self.column_height),                     # 9
+                            Geometry.Point3D(0, 0, self.column_height - self.slab_height)   # 10
                             ]
         self.apply_transfo_matrix_to_handles()
         # Set handles
@@ -1055,6 +1176,14 @@ class Cylinder(Objects3D):
                                      "ColumnHeight",
                                      HandleDirection.Z_DIR,
                                      "Hauteur",
+                                     1
+                                     ),
+                              Handle("SlabHeightHandle",
+                                     self.points_list[10],
+                                     self.points_list[9],
+                                     "SlabHeight",
+                                     HandleDirection.Z_DIR,
+                                     "Hauteur Poutre / Dalle",
                                      1
                                      )
                               ]

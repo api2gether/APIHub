@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\reinf_concr_column.py</Name>
         <Title>Poteau Béton Armé - API2GETHER</Title>
-        <Version>1.02</Version>
+        <Version>1.03</Version>
     </Script>
 
 	<Constants>
@@ -13,6 +13,12 @@
         <Constant>
             <Name>CALC_LONG_REBAR_DIAM</Name>
             <Value>1000</Value>
+            <ValueType>Integer</ValueType>
+        </Constant>
+
+		<Constant>
+            <Name>IMPORT_REINF_DATA_FROM_CSV</Name>
+            <Value>1001</Value>
             <ValueType>Integer</ValueType>
         </Constant>
 
@@ -431,6 +437,40 @@
         </Parameter>
 
 		<Parameter>
+			<Name>ReinfSeparator</Name>
+			<ValueType>Separator</ValueType>
+			<Visible>ShowReinfCheckBox == True</Visible>
+		</Parameter>
+
+		<Parameter>
+			<Name>CSVFilePath</Name>
+    		<Text>Importer le ferraillage</Text>
+			<Value></Value>
+			<ValueType>String</ValueType>
+			<ValueDialog>OpenFileDialog</ValueDialog>
+			<FileFilter>Fichiers CSV (*.csv)|*.csv|</FileFilter>
+			<FileExtension>csv</FileExtension>
+			<DefaultDirectories>etc|std|usr|prj</DefaultDirectories>
+			<Visible>ShowReinfCheckBox == True</Visible>
+		</Parameter>
+
+		<Parameter>
+			<Name>ImportDataRow</Name>
+			<Text> </Text>
+			<ValueType>Row</ValueType>
+			<Visible>ShowReinfCheckBox == True</Visible>
+
+			<Parameter>
+				<Name>ImportDataButton</Name>
+				<Text></Text>
+				<EventId>IMPORT_REINF_DATA_FROM_CSV</EventId>
+				<Value>images\StatusRunningNoColor.png</Value>
+				<ValueType>PictureButton</ValueType>
+				<Enable>False</Enable>
+			</Parameter>
+		</Parameter>
+
+		<Parameter>
             <Name>RebarOptionsExpander</Name>
             <Text>Options</Text>
             <ValueType>Expander</ValueType>
@@ -692,7 +732,7 @@ return f"barres latérales (Ø{SecondBarDiameter}) supérieures aux barres d'ang
 				<ValueType>namedtuple(Picture,IntegerComboBox,Length)</ValueType>
 				<NamedTuple>
 					<TypeName>MainStirrup</TypeName>
-					<FieldNames>Picture,Diameter,Length</FieldNames>
+					<FieldNames>Picture,Diameter,Spacing</FieldNames>
 				</NamedTuple>
 			</Parameter>
 
