@@ -129,9 +129,6 @@ def modify_control_properties(build_ele      : BuildingElement,
         # Path of CSV file
         csv_file_path = build_ele.CSVFilePath.value
 
-        # Initializing a list to store the data
-        data = []
-
         # Opening and reading the CSV file
         with open(csv_file_path, mode='r', encoding='utf-8') as file:
             csv_reader = csv.DictReader(file)
@@ -190,7 +187,7 @@ def modify_control_properties(build_ele      : BuildingElement,
 
                         else:
                             nbr_rebars = int(long_rebars_quantity)
-                            diameter   = 2 * (build_ele.ColumnRadius.value - concr_cover)
+                            diameter   = 2 * math.pi * (build_ele.ColumnRadius.value - concr_cover)
 
                             min_value_circ = max(4, math.ceil(diameter / esp_max))
                             max_value_circ = max(min_value_circ, math.floor(diameter / esp_min))
@@ -201,25 +198,30 @@ def modify_control_properties(build_ele      : BuildingElement,
                             main_stirrup_max_spac = min(20 * build_ele.FirstBarDiameter.value, 400, 2 * build_ele.ColumnRadius.value)
 
                         # Stirrup diameter and spacing
-                        scnd_stirrup_max_spac  = 0.6 * main_stirrup_max_spac
+                        scnd_stirrup_max_spac = 0.6 * main_stirrup_max_spac
 
-                        A_stirrup_spacing = max(main_stirrup_max_spac, float(A_stirrup_spacing))
-                        B_stirrup_spacing = max(scnd_stirrup_max_spac, float(B_stirrup_spacing))
-                        C_stirrup_spacing = max(scnd_stirrup_max_spac, float(C_stirrup_spacing))
+                        ctrl_prop_util.set_max_value("MainStirrup", f",10,{main_stirrup_max_spac}")
+                        ctrl_prop_util.set_max_value("StirrupList", f",{scnd_stirrup_max_spac},,")
+
+                        A_stirrup_spacing = min(main_stirrup_max_spac, float(A_stirrup_spacing))
+                        B_stirrup_spacing = min(scnd_stirrup_max_spac, float(B_stirrup_spacing))
+                        C_stirrup_spacing = min(scnd_stirrup_max_spac, float(C_stirrup_spacing))
 
                         main_stirrup = build_ele.MainStirrup.value
-                        main_stirrup._replace(Spacing = A_stirrup_spacing)
+                        main_stirrup = main_stirrup._replace(Spacing = A_stirrup_spacing)
                         valid_diameters = [6, 8, 10]
                         stir_rebars_diameter = int(stir_rebars_diameter)
                         if stir_rebars_diameter in valid_diameters:
-                            main_stirrup._replace(Diameter = stir_rebars_diameter)
+                            main_stirrup = main_stirrup._replace(Diameter = stir_rebars_diameter)
+                        build_ele.MainStirrup.value = main_stirrup
 
-                        stirrup_list = build_ele.StirrupList.value
+                        stirrup_list    = build_ele.StirrupList.value
                         stirrup_list[0] = stirrup_list[0]._replace(Spacing = B_stirrup_spacing)
                         stirrup_list[1] = stirrup_list[1]._replace(Spacing = C_stirrup_spacing)
                         break
 
         calcul_as_real(build_ele)
+
         return True
 
     if event_id == build_ele.CALC_LONG_REBAR_DIAM:
@@ -276,6 +278,7 @@ def modify_control_properties(build_ele      : BuildingElement,
     if value_name == "CSVFilePath":
         if build_ele.CSVFilePath.value:
             ctrl_prop_util.set_enable_condition("ImportDataButton", "True")
+
             return True
 
     return False

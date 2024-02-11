@@ -5,7 +5,7 @@
     <Script>
         <Name>APIHub\reinf_concr_column.py</Name>
         <Title>Poteau Béton Armé - API2GETHER</Title>
-        <Version>1.05</Version>
+        <Version>1.06</Version>
     </Script>
 
 	<Constants>
@@ -753,7 +753,7 @@ return f"barres latérales (Ø{SecondBarDiameter}) supérieures aux barres d'ang
 					<TypeName>Stirrup</TypeName>
 					<FieldNames>Picture,Spacing,Length,Separator</FieldNames>
 				</NamedTuple>
-				<MinValue>,100,,</MinValue>
+				<MinValue>,50,,</MinValue>
 				<MaxValue>,360,,</MaxValue>
 				<Enable>,,False</Enable>
 			</Parameter>
